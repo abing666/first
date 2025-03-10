@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>全屏自动播放体验</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            overflow: hidden;
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+        }
+
+        .loader {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s linear infinite;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .prompt {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 18px;
+            text-align: center;
+            opacity: 1;
+            transition: opacity 0.5s;
+        }
+
+        #videoElement {
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+
+        @keyframes spin {
+            to { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="loader"></div>
+    <div class="prompt">点击屏幕开始神秘之旅</div>
+    <video id="videoElement" playsinline webkit-playsinline muted>
+        <source src="your-video.mp4" type="video/mp4">
+        <source src="your-video.mov" type="video/quicktime">
+    </video>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const loader = document.querySelector('.loader');
+        const prompt = document.querySelector('.prompt');
+
+        // iOS自动播放优化
+        function initVideo() {
+            video.volume = 1.0;
+            video.muted = false;
+            video.preload = 'auto';
+            
+            // 预加载视频
+            video.load();
+        }
+
+        async function startPlayback() {
+            try {
+                prompt.style.opacity = 0;
+                loader.style.opacity = 1;
+                
+                // iOS需要用户交互后取消静音
+                if(/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                    video.muted = true;
+                    await video.play();
+                    video.muted = false;
+                } else {
+                    await video.play();
+                }
+                
+                video.style.opacity = 1;
+            } catch (error) {
+                prompt.textContent = '点击任意位置播放视频';
+                prompt.style.opacity = 1;
+            } finally {
+                loader.style.opacity = 0;
+            }
+        }
+
+        // 统一交互事件处理
+        function handleUserInteraction() {
+            document.removeEventListener('touchstart', handleUserInteraction);
+            document.removeEventListener('click', handleUserInteraction);
+            startPlayback();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            initVideo();
+            document.addEventListener('touchstart', handleUserInteraction);
+            document.addEventListener('click', handleUserInteraction);
+        });
+
+        // 处理iOS全屏问题
+        video.addEventListener('webkitbeginfullscreen', () => {
+            if(/iPhone|iPad|iPod/.test(navigator.userAgent)) {
+                video.pause();
+            }
+        });
+    </script>
+</body>
+</html>
