@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <title>全屏自动播放体验</title>
+    <title>沉浸式体验</title>
     <style>
         * {
             margin: 0;
@@ -19,31 +19,37 @@
             font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
         }
 
-        .loader {
+        /* 粒子背景容器 */
+        .particles {
             position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
-            border: 3px solid rgba(255,255,255,0.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s linear infinite;
-            opacity: 0;
-            transition: opacity 0.3s;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
         }
 
-        .prompt {
+        .prompt-box {
             position: fixed;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            color: #fff;
-            font-size: 18px;
             text-align: center;
+            opacity: 0;
+            transition: all 1s ease;
+            pointer-events: none;
+        }
+
+        .prompt-text {
+            color: #fff;
+            font-size: 2.5rem;
+            text-shadow: 0 0 20px rgba(255,255,255,0.5);
+            animation: textGlow 2s infinite;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .prompt-box.active {
             opacity: 1;
-            transition: opacity 0.5s;
+            pointer-events: auto;
         }
 
         #videoElement {
@@ -53,42 +59,79 @@
             object-fit: cover;
             opacity: 0;
             transition: opacity 1s;
+            z-index: 100;
         }
 
-        @keyframes spin {
-            to { transform: translate(-50%, -50%) rotate(360deg); }
+        @keyframes textGlow {
+            0%, 100% { 
+                transform: scale(1);
+                text-shadow: 0 0 20px rgba(255,255,255,0.5);
+            }
+            50% { 
+                transform: scale(1.05);
+                text-shadow: 0 0 40px rgba(255,255,255,0.8);
+            }
+        }
+
+        @keyframes particleFlow {
+            from { transform: translateY(-100%); }
+            to { transform: translateY(100vh); }
         }
     </style>
 </head>
 <body>
-    <div class="loader"></div>
-    <div class="prompt">点击屏幕开始神秘之旅</div>
+    <!-- 粒子背景 -->
+    <div class="particles"></div>
+    
+    <!-- 第一步提示 -->
+    <div class="prompt-box" id="step1">
+        <div class="prompt-text">你准备好了吗</div>
+    </div>
+
+    <!-- 第二步提示 -->
+    <div class="prompt-box" id="step2">
+        <div class="prompt-text">请点击屏幕</div>
+    </div>
+
     <video id="videoElement" playsinline webkit-playsinline muted>
         <source src="your-video.mp4" type="video/mp4">
-        <source src="your-video.mov" type="video/quicktime">
     </video>
 
     <script>
         const video = document.getElementById('videoElement');
-        const loader = document.querySelector('.loader');
-        const prompt = document.querySelector('.prompt');
+        let currentStep = 1;
 
-        // iOS自动播放优化
+        // 初始化粒子效果
+        function createParticles() {
+            const particles = document.querySelector('.particles');
+            for(let i = 0; i < 50; i++) {
+                const particle = document.createElement('div');
+                particle.style.cssText = `
+                    position: absolute;
+                    width: 2px;
+                    height: 20px;
+                    background: linear-gradient(to bottom, 
+                        rgba(255,255,255,0.8) 0%,
+                        rgba(255,255,255,0) 100%);
+                    left: ${Math.random() * 100}%;
+                    animation: particleFlow ${2 + Math.random() * 3}s linear infinite;
+                    animation-delay: ${Math.random() * 2}s;
+                `;
+                particles.appendChild(particle);
+            }
+        }
+
+        // 视频初始化
         function initVideo() {
             video.volume = 1.0;
-            video.muted = false;
+            video.muted = true;
             video.preload = 'auto';
-            
-            // 预加载视频
             video.load();
         }
 
+        // 启动播放
         async function startPlayback() {
             try {
-                prompt.style.opacity = 0;
-                loader.style.opacity = 1;
-                
-                // iOS需要用户交互后取消静音
                 if(/iPhone|iPad|iPod/.test(navigator.userAgent)) {
                     video.muted = true;
                     await video.play();
@@ -96,31 +139,35 @@
                 } else {
                     await video.play();
                 }
-                
                 video.style.opacity = 1;
             } catch (error) {
-                prompt.textContent = '点击任意位置播放视频';
-                prompt.style.opacity = 1;
-            } finally {
-                loader.style.opacity = 0;
+                document.getElementById('step2').querySelector('.prompt-text').textContent = '点击播放视频';
             }
         }
 
-        // 统一交互事件处理
-        function handleUserInteraction() {
-            document.removeEventListener('touchstart', handleUserInteraction);
-            document.removeEventListener('click', handleUserInteraction);
-            startPlayback();
+        // 交互处理
+        function handleInteraction() {
+            if(currentStep === 1) {
+                document.getElementById('step1').classList.remove('active');
+                document.getElementById('step2').classList.add('active');
+                currentStep = 2;
+                initVideo();
+            } else if(currentStep === 2) {
+                document.getElementById('step2').classList.remove('active');
+                currentStep = 3;
+                startPlayback();
+            }
         }
 
         // 初始化
         document.addEventListener('DOMContentLoaded', () => {
-            initVideo();
-            document.addEventListener('touchstart', handleUserInteraction);
-            document.addEventListener('click', handleUserInteraction);
+            createParticles();
+            document.getElementById('step1').classList.add('active');
+            document.addEventListener('click', handleInteraction);
+            document.addEventListener('touchstart', handleInteraction);
         });
 
-        // 处理iOS全屏问题
+        // iOS全屏处理
         video.addEventListener('webkitbeginfullscreen', () => {
             if(/iPhone|iPad|iPod/.test(navigator.userAgent)) {
                 video.pause();
